@@ -18,7 +18,10 @@ public class ESClient {
 	@SuppressWarnings({ "resource", "unchecked" })
 	public ESClient() {
 		try {
-			//ע���˴���port�޸ĳ�9300
+			//注：此处的port修改成9300，如果集群名不是默认的elasticsearch，则需要设置Settings
+//			Settings settings = Settings.builder()
+//			        .put("cluster.name", "myClusterName").build();
+//			TransportClient client = new PreBuiltTransportClient(settings);
 			client = new PreBuiltTransportClient(Settings.EMPTY).addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("192.168.1.200"),9300));
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
