@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -35,6 +36,11 @@ public class ESClient {
 	public String get() {
 		GetResponse response = client.prepareGet("gktest", "gaokai", "1").get();
 		return JSONObject.toJSONString(response.getSource());
+	}
+	
+	public void index(GktestIndex index) {
+		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(JSONObject.toJSONString(index)).get();
+		System.out.println(indexResponse.getId());
 	}
 	
 }

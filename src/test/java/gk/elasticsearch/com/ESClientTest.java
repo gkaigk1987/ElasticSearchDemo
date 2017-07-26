@@ -17,5 +17,14 @@ public class ESClientTest {
 		String string = esClient.get();
 		System.out.println(string);
 	}
+	
+	@Test
+	public void test02() {
+		GktestIndex index = new GktestIndex();
+		index.setId(5L);
+		index.setName("南京");
+		index.setAge(5000);
+		esClient.index(index);
+	}
 
 }
