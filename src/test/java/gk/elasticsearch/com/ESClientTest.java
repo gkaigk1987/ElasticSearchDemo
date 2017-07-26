@@ -26,5 +26,14 @@ public class ESClientTest {
 		index.setAge(5000);
 		esClient.index(index);
 	}
+	
+	@Test
+	public void test03() {
+		GktestIndex index = new GktestIndex();
+		index.setId(4L);
+		index.setName("江苏");
+		index.setAge(5001);
+		esClient.index(index);
+	}
 
 }

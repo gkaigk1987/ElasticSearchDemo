@@ -38,9 +38,20 @@ public class ESClient {
 		return JSONObject.toJSONString(response.getSource());
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void index(GktestIndex index) {
 		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(JSONObject.toJSONString(index)).get();
 		System.out.println(indexResponse.getId());
+	}
+	
+	public void index2(GktestIndex index) {
+//		XContentBuilder builder = XContentFactory.jsonBuilder().startObject().
+		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(index).get();
+		System.out.println(indexResponse.getId());
+	}
+	
+	public void index3() {
+		
 	}
 	
 }
