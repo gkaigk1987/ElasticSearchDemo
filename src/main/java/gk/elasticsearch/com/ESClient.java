@@ -2,12 +2,13 @@ package gk.elasticsearch.com;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Map;
 
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 import com.alibaba.fastjson.JSONObject;
@@ -20,10 +21,9 @@ public class ESClient {
 	public ESClient() {
 		try {
 			//注：此处的port修改成9300，如果集群名不是默认的elasticsearch，则需要设置Settings
-//			Settings settings = Settings.builder()
-//			        .put("cluster.name", "myClusterName").build();
-//			TransportClient client = new PreBuiltTransportClient(settings);
-			client = new PreBuiltTransportClient(Settings.EMPTY).addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("192.168.1.200"),9300));
+			Settings settings = Settings.builder()
+			        .put("cluster.name", "cluster").build();
+			client = new PreBuiltTransportClient(settings).addTransportAddress(new TransportAddress(InetAddress.getByName("localhost"),9300));
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		}
@@ -38,9 +38,8 @@ public class ESClient {
 		return JSONObject.toJSONString(response.getSource());
 	}
 	
-	@SuppressWarnings("deprecation")
-	public void index(GktestIndex index) {
-		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(JSONObject.toJSONString(index)).get();
+	public void index(Map<String, Object> map) {
+		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(map).get();
 		System.out.println(indexResponse.getId());
 	}
 	

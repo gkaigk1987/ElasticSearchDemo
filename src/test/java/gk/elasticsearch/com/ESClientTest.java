@@ -1,5 +1,8 @@
 package gk.elasticsearch.com;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -20,11 +23,15 @@ public class ESClientTest {
 	
 	@Test
 	public void test02() {
-		GktestIndex index = new GktestIndex();
-		index.setId(5L);
-		index.setName("南京");
-		index.setAge(5000);
-		esClient.index(index);
+//		GktestIndex index = new GktestIndex();
+//		index.setId(5L);
+//		index.setName("南京");
+//		index.setAge(5000);
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("id", 5L);
+		map.put("name", "南京");
+		map.put("age", 5000);
+		esClient.index(map);
 	}
 	
 	@Test
@@ -33,7 +40,7 @@ public class ESClientTest {
 		index.setId(4L);
 		index.setName("江苏");
 		index.setAge(5001);
-		esClient.index(index);
+		esClient.index2(index);
 	}
 
 }
