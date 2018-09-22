@@ -17,7 +17,7 @@ public class ESClient {
 	
 	private Client client;
 	
-	@SuppressWarnings({ "resource", "unchecked" })
+	@SuppressWarnings({ "resource"})
 	public ESClient() {
 		try {
 			//注：此处的port修改成9300，如果集群名不是默认的elasticsearch，则需要设置Settings
