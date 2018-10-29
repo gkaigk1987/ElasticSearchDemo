@@ -5,8 +5,12 @@ import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ESClientTest {
+	
+	private static Logger logger = LoggerFactory.getLogger(ESClientTest.class);
 	
 	private ESClient esClient;
 	
@@ -42,5 +46,7 @@ public class ESClientTest {
 		index.setAge(5001);
 		esClient.index2(index);
 	}
+	
+	
 
 }
