@@ -3,6 +3,8 @@ package gk.elasticsearch.com.mapper;
 import gk.elasticsearch.com.model.Thesis;
 import gk.elasticsearch.com.model.ThesisExample;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.ibatis.annotations.Param;
 
 public interface ThesisMapper {
@@ -117,4 +119,11 @@ public interface ThesisMapper {
      * @mbg.generated
      */
     int updateByPrimaryKey(Thesis record);
+    
+    /**
+     * 分页查找
+     * @param param
+     * @return
+     */
+    public List<Thesis> getPageThesis(Map<String, Object> param);
 }

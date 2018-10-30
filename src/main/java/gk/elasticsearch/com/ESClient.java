@@ -2,16 +2,12 @@ package gk.elasticsearch.com;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Map;
 
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.AdminClient;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
-
-import com.alibaba.fastjson.JSONObject;
 
 public class ESClient {
 	
@@ -33,24 +29,14 @@ public class ESClient {
 		client.close();
 	}
 	
-	public String get() {
-		GetResponse response = client.prepareGet("gktest", "gaokai", "1").get();
-		return JSONObject.toJSONString(response.getSource());
+	public Client getClient() {
+		return client;
 	}
 	
-	public void index(Map<String, Object> map) {
-		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(map).get();
-		System.out.println(indexResponse.getId());
+	public AdminClient getAdmin() {
+		AdminClient adminClient = client.admin();
+		return adminClient;
 	}
 	
-	public void index2(GktestIndex index) {
-//		XContentBuilder builder = XContentFactory.jsonBuilder().startObject().
-		IndexResponse indexResponse = client.prepareIndex("gktest", "gaokai").setSource(index).get();
-		System.out.println(indexResponse.getId());
-	}
-	
-	public void index3() {
-		
-	}
 	
 }

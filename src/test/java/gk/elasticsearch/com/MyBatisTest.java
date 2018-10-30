@@ -10,11 +10,15 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import gk.elasticsearch.com.mapper.ThesisMapper;
 import gk.elasticsearch.com.model.Thesis;
 
 public class MyBatisTest {
+	
+	private static Logger logger = LoggerFactory.getLogger(MyBatisTest.class);
 	
 	private SqlSession sqlSession = null;
 	
@@ -39,4 +43,8 @@ public class MyBatisTest {
 		System.out.println(thesis.getThesisTitle());
 	}
 
+	@Test
+	public void testLog() {
+		logger.info("Log 测试");
+	}
 }
