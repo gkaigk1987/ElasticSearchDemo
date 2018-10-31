@@ -33,12 +33,15 @@ import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.text.Text;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.UpdateByQueryAction;
@@ -47,6 +50,12 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -216,7 +225,7 @@ public class ESClientTest {
 			pageThesis.stream().forEach(t -> {
 				try {
 					XContentBuilder jsonBuilder = XContentFactory.jsonBuilder();
-					bulkRequestBuilder.add(client.prepareIndex("thesis2", "pqdt_thesis2", String.valueOf(t.getId()))
+					bulkRequestBuilder.add(client.prepareIndex("thesis", "pqdt_thesis", String.valueOf(t.getId()))
 							.setSource(jsonBuilder.startObject()
 									.field("id", t.getId())
 									.field("thesisCode", t.getThesisCode())
@@ -354,6 +363,20 @@ public class ESClientTest {
 	}
 	
 	/**
+	 * match检索是分词检索，不需要全词匹配
+	 */
+	@Test
+	public void testMatchQuery() {
+		MatchQueryBuilder matchQuery = QueryBuilders.matchQuery("title", "developing");
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis").setQuery(matchQuery).setSize(10).get();
+		SearchHits hits = searchResponse.getHits();
+		for (SearchHit searchHit : hits) {
+			System.out.println(searchHit.getSourceAsString());
+		}
+	}
+	
+	/**
 	 * term查询是不分词的，需要全词匹配
 	 */
 	@Test
@@ -368,4 +391,49 @@ public class ESClientTest {
 		}
 	}
 	
+	@Test
+	public void testRangQuery() {
+		RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery("year").from(2016).to(2019);
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis").setQuery(rangeQuery).setSize(20).get();
+		SearchHits hits = searchResponse.getHits();
+		for (SearchHit searchHit : hits) {
+			System.out.println(searchHit.getSourceAsString());
+		}
+	}
+	
+	/**
+	 * 待完善
+	 */
+	@Test
+	public void testHighlighter() {
+		Client client = esClient.getClient();
+		HighlightBuilder highlightBuilder = new HighlightBuilder();
+		//高亮显示规则
+		highlightBuilder.preTags("<span style='color:red'>");
+		highlightBuilder.postTags("</span>");
+		//高亮字段
+		highlightBuilder.field("title");
+		
+		MatchQueryBuilder matchQuery = QueryBuilders.matchQuery("title", "developing");
+		SearchResponse searchResponse = client.prepareSearch("thesis").setQuery(matchQuery).highlighter(highlightBuilder).setSize(10).get();
+		SearchHits hits = searchResponse.getHits();
+		for (SearchHit searchHit : hits) {
+			Map<String, HighlightField> highlightFields = searchHit.getHighlightFields();
+			HighlightField highlightField = highlightFields.get("title");
+			Text[] texts = highlightField.getFragments();
+			System.out.println(texts[0].toString());
+			System.out.println(searchHit.getSourceAsString());
+		}
+	}
+	
+	/**
+	 * 聚合--待完成
+	 */
+	@Test
+	public void testAggregations() {
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis").addAggregation(AggregationBuilders.terms("by_lang").field("lang")).get();
+		Terms aggregation = searchResponse.getAggregations().get("by_lang");
+	}
 }
