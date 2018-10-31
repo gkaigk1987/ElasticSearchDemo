@@ -2,9 +2,12 @@ package gk.elasticsearch.com;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -12,13 +15,38 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
+import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.bulk.BulkItemResponse.Failure;
+import org.elasticsearch.action.bulk.BulkProcessor;
+import org.elasticsearch.action.bulk.BulkProcessor.Listener;
+import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetRequestBuilder;
+import org.elasticsearch.action.get.MultiGetResponse;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.ByteSizeUnit;
+import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.UpdateByQueryAction;
+import org.elasticsearch.index.reindex.UpdateByQueryRequestBuilder;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptType;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -73,6 +101,10 @@ public class ESClientTest {
 		System.out.println(putMappingResponse.isAcknowledged());
 	}
 	
+	/**
+	 * 效率差
+	 * @throws IOException
+	 */
 	@Test
 	public void insertIndexData() throws IOException {
 		Reader resourceAsReader = Resources.getResourceAsReader("SqlMapConfig.xml");
@@ -208,6 +240,132 @@ public class ESClientTest {
 			logger.info("{}次插入索引成功,返回类型:{}",i,bulkResponse.status());
 		}
 		sqlSession.close();
+	}
+	
+	@Test
+	public void updateIndex() throws IOException, InterruptedException, ExecutionException {
+		Client client = esClient.getClient();
+		//方式一
+//		UpdateRequest updateRequest = new UpdateRequest();
+//		updateRequest.index("thesis").type("pqdt_thesis").id("284428");
+		//方式二
+		UpdateRequest updateRequest = new UpdateRequest("thesis", "pqdt_thesis", "284428");
+		XContentBuilder jsonBuilder = XContentFactory.jsonBuilder();
+		updateRequest.doc(jsonBuilder.startObject().field("pages", 20).endObject());
+		UpdateResponse updateResponse = client.update(updateRequest).get();
+		logger.info("更新成功：{}",updateResponse.status());
+	}
+	
+	/**
+	 * 没有则新增，有则修改
+	 * @throws IOException 
+	 * @throws ExecutionException 
+	 * @throws InterruptedException 
+	 */
+	@Test
+	public void testUpsert() throws IOException, InterruptedException, ExecutionException {
+		XContentBuilder jsonBuilder = XContentFactory.jsonBuilder();
+		IndexRequest indexRequest = new IndexRequest("thesis", "pqdt_thesis", "1");
+		indexRequest.source(jsonBuilder.startObject()
+				.field("id", "1")
+				.field("thesisCode", "111111")
+				.field("title", "my test add title")
+				.endObject());
+		UpdateRequest updateRequest = new UpdateRequest("thesis", "pqdt_thesis", "1");
+		XContentBuilder jsonBuilder2 = XContentFactory.jsonBuilder();
+		updateRequest.doc(jsonBuilder2.startObject()
+				.field("id", "1")
+				.field("thesisCode", "222222")
+				.endObject()).upsert(indexRequest);
+		Client client = esClient.getClient();
+		UpdateResponse updateResponse = client.update(updateRequest).get();
+		logger.info("更新或新增完成，返回状态码：{}",updateResponse.status());
+	}
+	
+	@Test
+	public void testMget() {
+		Client client = esClient.getClient();
+		MultiGetRequestBuilder prepareMultiGet = client.prepareMultiGet();
+		List<String> ids = new ArrayList<>();
+		ids.add("284429");
+		ids.add("284430");
+		ids.add("284431");
+		MultiGetResponse multiGetResponse = prepareMultiGet.add("thesis","pqdt_thesis",ids).get();//该方法有多个重载
+		for (MultiGetItemResponse multiGetItemResponse : multiGetResponse) {
+			GetResponse getResponse = multiGetItemResponse.getResponse();
+			if(getResponse.isExists()) {
+				System.out.println(getResponse.getSourceAsString());
+			}
+		}
+	}
+	
+	/**
+	 * 该方法未执行测试
+	 */
+	@Test
+	public void testBulkProcessor() {
+		Client client = esClient.getClient();
+		BulkProcessor bulkProcessor = BulkProcessor.builder(client, new Listener() {
+			//bulk执行前调用
+			@Override
+			public void beforeBulk(long executionId, BulkRequest request) {
+				// do something
+			}
+			//bulk执行后出现失败异常时调用
+			@Override
+			public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+				// do something
+			}
+			//bulk执行成功后调用
+			@Override
+			public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+				// do something
+			}
+		}).setBulkActions(10000)	//每10000次request调用bulk操作，默认1000
+		.setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))	//每10MB内容刷新bulk，默认5MB
+		.setConcurrentRequests(1)	//同步request数，0表示一个同时只有一个request发出，1表示允许2个request同时发出，默认值是1
+		.setFlushInterval(TimeValue.timeValueSeconds(15))	//15秒刷新bulk，而忽略request的数量，默认不设置
+		.setBackoffPolicy(BackoffPolicy.exponentialBackoff(TimeValue.timeValueMinutes(1), 3))	//设置回退策略，该策略最初等待1分钟，呈指数级增长，最多重试3次，关闭回退策略使用BackoffPolicy.noBackoff()。默认是50ms重试8次
+		.build();
+//		bulkProcessor.add(new IndexRequest("twitter", "_doc", "1").source(""));
+//		bulkProcessor.add(new DeleteRequest("twitter", "_doc", "2"));
+		//关闭方式一
+//		bulkProcessor.awaitClose(10, TimeUnit.MINUTES);
+		//关闭方式二
+		bulkProcessor.close();
+	}
+	
+	/**
+	 * 官方API文档有错误
+	 * new Script(ScriptType type, String lang, String idOrCode, Map<String, Object> params)
+	 * 第二个参数是lang即"painless"，官方文档将其写到了第三个参数
+	 * 说明：ctx._source.pages = 31，表示更新字段是pages的值为31
+	 */
+	@Test
+	public void testUpdateByQuery() {
+		Client client = esClient.getClient();
+		UpdateByQueryRequestBuilder updateByQuery = UpdateByQueryAction.INSTANCE.newRequestBuilder(client);
+		updateByQuery.source("thesis").filter(QueryBuilders.matchQuery("year", 2019)).script(
+				new Script(ScriptType.INLINE, "painless", "ctx._source.pages = 31", Collections.emptyMap()));
+		BulkByScrollResponse bulkByScrollResponse = updateByQuery.get();
+		for (Failure failure :  bulkByScrollResponse.getBulkFailures()) {
+			System.out.println(failure.getMessage());
+		}
+	}
+	
+	/**
+	 * term查询是不分词的，需要全词匹配
+	 */
+	@Test
+	public void testTermQuery() {
+//		TermQueryBuilder termQuery = QueryBuilders.termQuery("title", "Question");	//查不到值，因为需要全词匹配
+		TermQueryBuilder termQuery = QueryBuilders.termQuery("year", 2019);	
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis").setQuery(termQuery).setSize(20).get();
+		SearchHits hits = searchResponse.getHits();
+		for (SearchHit searchHit : hits) {
+			System.out.println(searchHit.getSourceAsString());
+		}
 	}
 	
 }
