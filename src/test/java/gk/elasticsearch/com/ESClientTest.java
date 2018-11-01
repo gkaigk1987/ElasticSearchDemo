@@ -50,10 +50,13 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
+import org.elasticsearch.search.aggregations.metrics.max.Max;
+import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.min.Min;
+import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.junit.After;
@@ -377,6 +380,23 @@ public class ESClientTest {
 	}
 	
 	/**
+	 * 分页测试
+	 */
+	@Test
+	public void testPagination() {
+		MatchQueryBuilder matchQuery = QueryBuilders.matchQuery("title", "developing");
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis").setQuery(matchQuery)
+				.setFrom(0)	//从哪条记录开始 相当于offset
+				.setSize(10)//查询多少条记录 相当于pagesize
+				.get();
+		SearchHits hits = searchResponse.getHits();
+		for (SearchHit searchHit : hits) {
+			System.out.println(searchHit.getSourceAsString());
+		}
+	}
+	
+	/**
 	 * term查询是不分词的，需要全词匹配
 	 */
 	@Test
@@ -428,12 +448,113 @@ public class ESClientTest {
 	}
 	
 	/**
-	 * 聚合--待完成
+	 * bucket聚合
 	 */
 	@Test
 	public void testAggregations() {
 		Client client = esClient.getClient();
-		SearchResponse searchResponse = client.prepareSearch("thesis").addAggregation(AggregationBuilders.terms("by_lang").field("lang")).get();
+		SearchResponse searchResponse = client.prepareSearch("thesis")
+				.addAggregation(AggregationBuilders.terms("by_lang").size(100).field("lang")).get();
 		Terms aggregation = searchResponse.getAggregations().get("by_lang");
+		List<? extends Bucket> buckets = aggregation.getBuckets();
+		for (Bucket bucket : buckets) {
+			System.out.println(bucket.getKeyAsString() + ":" + bucket.getDocCount());
+		}
+	}
+	
+	/**
+	 * bucket子聚合
+	 */
+	@Test
+	public void testSubAggregations() {
+		Client client = esClient.getClient();
+		SearchResponse searchResponse = client.prepareSearch("thesis")
+				.addAggregation(AggregationBuilders.terms("by_lang").field("lang").size(50)
+						.subAggregation(AggregationBuilders.terms("by_year").field("year").size(20)))
+				.get();
+		Terms aggregation = searchResponse.getAggregations().get("by_lang");
+		List<? extends Bucket> buckets = aggregation.getBuckets();
+		for (Bucket bucket : buckets) {
+			String keyAsString = bucket.getKeyAsString();
+			long docCount = bucket.getDocCount();
+			System.out.println(keyAsString + ":" + docCount);
+			Terms aggregation2 = bucket.getAggregations().get("by_year");
+			List<? extends Bucket> buckets2 = aggregation2.getBuckets();
+			for (Bucket bucket2 : buckets2) {
+				String keyAsString2 = bucket2.getKeyAsString();
+				long docCount2 = bucket2.getDocCount();
+				System.out.println("		" + keyAsString2 + ":" + docCount2);
+			}
+		}
+	}
+	
+	@Test
+	public void testMetricsAggregations() {
+		Client client = esClient.getClient();
+		//min agg
+		MinAggregationBuilder minAggregationBuilder = AggregationBuilders.min("minAgg").field("year");
+		SearchResponse searchResponse = client.prepareSearch("thesis").addAggregation(minAggregationBuilder).get();
+		Min aggregation = searchResponse.getAggregations().get("minAgg");
+		double value = aggregation.getValue();
+		System.out.println("Min Aggregation: " + value);
+		
+		//max agg
+		MaxAggregationBuilder maxAggregationBuilder = AggregationBuilders.max("maxAgg").field("year");
+		searchResponse = client.prepareSearch("thesis").addAggregation(maxAggregationBuilder).get();
+		Max maxAggregation = searchResponse.getAggregations().get("maxAgg");
+		double maxValue = maxAggregation.getValue();
+		System.out.println("Max Aggregation: " + maxValue);
+		
+		//sum agg
+		
+		//avg agg
+		
+		//stats agg 获取的Stats对象中包含min,max,avg,sum,count
+		
+		//extended stat agg
+		
+		//value count agg
+		
+		//percentiles agg
+		
+		//percentile ranks agg
+		
+		//cardinality(基数) agg 
+		
+		//geo bounds agg
+		
+		//top hits agg
+	}
+	
+	@Test
+	public void bucketAggregation() {
+		//global agg
+		
+		//filter agg
+		
+		//filters agg
+		
+		//missing agg 索引中缺少某个字段的agg
+		
+		//nested agg
+		
+		//reverse nested agg
+		
+		//children agg
+		
+		//terms agg 常用 可以加上order对键或值进行排序
+		
+		//range agg
+		
+		//date range agg
+		
+		//Ip range agg
+		
+		//histogram agg
+		
+		//date histogram agg
+		
+		//geo distance agg
+		
 	}
 }
