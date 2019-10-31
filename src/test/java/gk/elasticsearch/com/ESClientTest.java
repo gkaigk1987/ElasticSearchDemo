@@ -14,7 +14,6 @@ import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkItemResponse.Failure;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -28,6 +27,7 @@ import org.elasticsearch.action.get.MultiGetRequestBuilder;
 import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
@@ -53,10 +53,10 @@ import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
-import org.elasticsearch.search.aggregations.metrics.max.Max;
-import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
-import org.elasticsearch.search.aggregations.metrics.min.Min;
-import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.Max;
+import org.elasticsearch.search.aggregations.metrics.MaxAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.Min;
+import org.elasticsearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.junit.After;
@@ -109,7 +109,7 @@ public class ESClientTest {
 				.startObject("lang").field("type", "keyword").endObject()
 				.startObject("summary").field("type", "text").endObject()
 			.endObject().endObject();
-		PutMappingResponse putMappingResponse = indicesAdminClient.preparePutMapping("thesis").setType("pqdt_thesis").setSource(builder).get();
+		AcknowledgedResponse putMappingResponse = indicesAdminClient.preparePutMapping("thesis").setType("pqdt_thesis").setSource(builder).get();
 		System.out.println(putMappingResponse.isAcknowledged());
 	}
 	
@@ -193,7 +193,7 @@ public class ESClientTest {
 				.startObject("lang").field("type", "keyword").endObject()
 				.startObject("summary").field("type", "text").endObject()
 			.endObject().endObject();
-		PutMappingResponse putMappingResponse = indicesAdminClient.preparePutMapping("thesis2").setType("pqdt_thesis2").setSource(builder).get();
+		AcknowledgedResponse putMappingResponse = indicesAdminClient.preparePutMapping("thesis2").setType("pqdt_thesis2").setSource(builder).get();
 		System.out.println(putMappingResponse.isAcknowledged());
 	}
 	
@@ -228,15 +228,15 @@ public class ESClientTest {
 			pageThesis.stream().forEach(t -> {
 				try {
 					XContentBuilder jsonBuilder = XContentFactory.jsonBuilder();
-					bulkRequestBuilder.add(client.prepareIndex("thesis", "pqdt_thesis", String.valueOf(t.getId()))
+					bulkRequestBuilder.add(client.prepareIndex("thesis", "_doc", String.valueOf(t.getId()))
 							.setSource(jsonBuilder.startObject()
 									.field("id", t.getId())
 									.field("thesisCode", t.getThesisCode())
 									.field("title", t.getThesisTitle())
 									.field("author", t.getThesisAuthor())
-									.field("pages", t.getThesisPages())
-									.field("schoolCode", t.getThesisSchoolCode())
-									.field("schoolName", t.getThesisSchoolName())
+//									.field("pages", t.getThesisPages())
+//									.field("schoolCode", t.getThesisSchoolCode())
+//									.field("schoolName", t.getThesisSchoolName())
 									.field("year", t.getThesisYear())
 									.field("lang", t.getThesisLang())
 									.field("summary", t.getThesisSummary())
@@ -356,7 +356,8 @@ public class ESClientTest {
 	@Test
 	public void testUpdateByQuery() {
 		Client client = esClient.getClient();
-		UpdateByQueryRequestBuilder updateByQuery = UpdateByQueryAction.INSTANCE.newRequestBuilder(client);
+//		UpdateByQueryRequestBuilder updateByQuery = UpdateByQueryAction.INSTANCE.newRequestBuilder(client);
+		UpdateByQueryRequestBuilder updateByQuery = new UpdateByQueryRequestBuilder(client, UpdateByQueryAction.INSTANCE);
 		updateByQuery.source("thesis").filter(QueryBuilders.matchQuery("year", 2019)).script(
 				new Script(ScriptType.INLINE, "painless", "ctx._source.pages = 31", Collections.emptyMap()));
 		BulkByScrollResponse bulkByScrollResponse = updateByQuery.get();
