@@ -1,5 +1,6 @@
 package gk.elasticsearch.com;
 
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
@@ -8,6 +9,8 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -18,7 +21,13 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -246,6 +255,72 @@ public class ESRestClientTest {
     @Test
     public void bulkApi() {
 
+    }
+
+    /**
+     * https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high-document-multi-get.html
+     */
+    @Test
+    public void multiGetApi() {
+
+    }
+
+    /**
+     * https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high-document-reindex.html
+     */
+    @Test
+    public void reindexApi(){
+
+    }
+
+    /**
+     * https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high-document-update-by-query.html
+     */
+    @Test
+    public void updateByQueryApi() {
+
+    }
+
+    /**
+     * https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high-document-delete-by-query.html
+     */
+    @Test
+    public void deleteByQueryApi() {
+
+    }
+
+    @Test
+    public void basicSearch() throws IOException {
+//        SearchRequest searchRequest = new SearchRequest();    //表示查询所有index
+        SearchRequest searchRequest = new SearchRequest("thesis");
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.trackTotalHits(true);   //设置追踪hit总数，否则默认最多为10000
+//        searchSourceBuilder.trackTotalHitsUpTo();
+        SimpleQueryStringBuilder simpleQueryStringBuilder = QueryBuilders.simpleQueryStringQuery("english");
+        MatchAllQueryBuilder matchAllQueryBuilder = QueryBuilders.matchAllQuery();
+//        MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery();
+//        MatchPhraseQueryBuilder matchPhraseQueryBuilder = QueryBuilders.matchPhraseQuery();
+        searchSourceBuilder.query(simpleQueryStringBuilder);
+        searchSourceBuilder.from(0);
+        searchSourceBuilder.size(10);
+        searchSourceBuilder.timeout(TimeValue.timeValueSeconds(10));    //检索超时时间
+        searchRequest.source(searchSourceBuilder);
+        SearchResponse response = esRestClient.getClient().search(searchRequest, RequestOptions.DEFAULT);
+        RestStatus status = response.status();
+        System.out.println("status：" + status);
+        TimeValue took = response.getTook();
+        System.out.println("took：" + took.getMillis());
+        SearchHits hits = response.getHits();
+        TotalHits totalHits = hits.getTotalHits();
+        long numHits = totalHits.value;   //检索命中数
+        System.out.println("numHits：" + numHits);
+        TotalHits.Relation relation = totalHits.relation;
+        System.out.println("relation：" + relation);
+        SearchHit[] searchHits = hits.getHits();
+        for(SearchHit hit : searchHits) {
+            Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+            System.out.println(sourceAsMap);
+        }
     }
 
 }
